@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>:-) 便利贴</title>
+    <link href="../css/pages.css" rel="stylesheet">
+</head>
+<body>
+<div id="app">
+    <!--主标题-->
+    <div class="mainTitle">
+        <h1>你好!欢迎使用 :-) 便利贴</h1><input type="button" class="button" @click="showAll()" value="查看所有便利贴">
+    </div>
+    <!--便利贴主体-->
+    <div class="paperDiv" style="height: 210px">
+        <form action="" id="form" method="post">
+            <div style="display: flex;">
+                <h3 class="title">标题：</h3><label><input type="text" class="input" v-model.trim="note.cardTitle"
+                                                          placeholder="在这里输入记录的标题">
+            </label>
+                <h3 class="title">日期：</h3><label><input type="date" class="inputData" v-model="note.expirationDate">
+            </label>
+            </div>
+            <div class="textDiv"><label><textarea class="text" v-model="note.cardBody"
+                                                  placeholder="在这里记录心情就好了！"></textarea>
+            </label></div>
+            <div class="subDiv">
+                <input type="button" class="buttonSubmit" @click="mySubmit()" value="添加">&emsp;&emsp;
+                <input type="button" class="buttonAlert" @click="myReSet()" value="清除">
+            </div>
+        </form>
+    </div>
+</div>
+<!--导入Ajax-->
+<script src="../js/axios.min.js"></script>
+<!--导入js-->
+<script src="../js/vue.js"></script>
+<script>
+    new Vue({
+        el: "#app",
+        data() {
+            return {
+                note: {
+                    cardId: "",
+                    cardTitle: "",
+                    cardBody: "",
+                    publicationDate: "",
+                    visible: "",
+                    expirationDate: ""
+                }
+            }
+        },
+        //生命周期函数
+        created() {
+            this.noteInit();
+        },
+        methods: {
+            //初始化
+            noteInit() {
+                let aData = new Date();
+                let now_date = aData.getFullYear() + "-" + (aData.getMonth() + 1) + "-" + aData.getDate();
+                this.note.publicationDate = now_date;
+                this.note.expirationDate = now_date;
+                this.note.visible = "1";
+            },
+            //绑定提交按钮
+            mySubmit() {
+                let body = this.note.cardBody;
+                body = body.trim();
+                if (body == null || body === '') {
+                    alert("正文为空:'( ")
+                } else {
+                    this.handleAdd();
+                }
+            },
+            //绑定清除按钮
+            myReSet() {
+                this.note.cardTitle = "";
+                this.note.cardBody = "";
+            },
+            //发送添加请求
+            handleAdd() {
+                axios.post("http://localhost:8080/notes/", this.note)
+                    .then((res) => {
+                    console.log(res.data);
+                    if (res.data.code === 23511) {
+                        alert("添加成功");
+                        this.myReSet();
+                    } else if (res.data.code === 23510) {
+                        alert("添加失败");
+                    } else {
+                        alert(res.data.msg);
+                    }
+                }).finally(() => {
+                    console.log("提交;-)一次 " + new Date());
+                });
+            },
+            //绑定跳转按钮
+            showAll() {
+                window.location.href = "./allCard.html";
+            }
+        }
+    })
+</script>
+</body>
+</html>

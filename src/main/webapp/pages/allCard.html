@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>:-) 便利贴啦</title>
+    <link href="../css/all.css" rel="stylesheet">
+</head>
+<body>
+<div id="app">
+
+    <!--信息展示框-->
+    <div class="mainTitle">
+        <h1>:-) 全部的便利贴</h1><input type="button" class="button" @click="back()" value="返回">
+        <!--分页工具框-->
+        <div style="display: flex;padding-top: 5px;margin: auto">
+            <input type="button" class="buttonBig" value="总记录数:{{this.page.totalCount}}">
+            <input type="button" class="buttonPage" @click="myLastPage()" value="<<">
+            <div v-for="index in pageRange">
+                <input type="button" v-if="parseInt(index)===parseInt(this.page.currentPage)" class="buttonPageGreen"
+                       @click="setCurrentPage(index)" value="{{index}}">
+                <input type="button" v-else class="buttonPage" @click="setCurrentPage(index)" value="{{index}}">
+            </div>
+            <input type="button" class="buttonPage" @click="myNextPage()" value=">>">
+        </div>
+    </div>
+    <!--便利贴主体-->
+    <div class="paperDiv" v-for="note in notes">
+        <form action="" id="form" method="post">
+            <div style="display: flex;">
+                <h3 class="title">标题：</h3>
+                <label>
+                    <input type="text" class="input" disabled v-model="note.cardTitle">
+                </label>
+                <h3 class="title">截至日期：</h3>
+                <label>
+                    <input type="text" class="inputData" disabled v-model="note.expirationDate">
+                </label>
+                <h3 class="title">创建日期：</h3>
+                <label>
+                    <input type="text" class="inputData" disabled v-model="note.publicationDate">
+                </label>
+            </div>
+            <div class="textDiv">
+                <label>
+                    <input type="text" class="text" disabled v-model="note.cardBody">
+                </label>
+            </div>
+            <div class="subDiv">
+                <input v-if="note.visible===1" type="button" class="buttonSubmit" @click="finish(note.cardId)"
+                       value="标记为完成">
+                <input v-else type="button" class="buttonReDo" @click="finish(note.cardId)" value="重做">
+                <input type="button" class="buttonNormal" @click="dialogOpen(note.cardId)" value="修改">
+                <input type="button" class="buttonAlert" @click="deleteNote(note.cardId)" value="删除">
+            </div>
+        </form>
+    </div>
+    <!--模拟对话框-->
+    <div id="myDialog" class="dialog" v-show="this.dialog===true">
+        <div class="miniTitle">
+            <h2>在这里修改便利贴的内容:-)</h2>
+        </div>
+        <div class="paperDiv" style="height: 210px">
+            <form action="" method="post">
+                <div style="display: flex;">
+                    <h3 class="title">标题：</h3>
+                    <label>
+                        <input type="text" class="input" v-model="updateData.cardTitle">
+                    </label>
+                    <h3 class="title">截至日期：</h3>
+                    <label>
+                        <input type="date" class="inputData" v-model="updateData.expirationDate">
+                    </label>
+                    <h3 class="title">创建日期：</h3>
+                    <label>
+                        <input type="date" class="inputData" v-model="updateData.publicationDate">
+                    </label>
+                </div>
+                <div class="textDiv">
+                    <label>
+                        <input type="text" class="text" v-model="updateData.cardBody">
+                    </label>
+                </div>
+                <div class="subDiv">
+                    <input type="button" class="buttonSmall" value="便利贴状态:">
+                    <input v-if="updateData.visible===1" type="button" class="buttonSubmit" value="未完成">
+                    <input v-else type="button" class="buttonReDo" value="已完成">
+                    <input type="button" class="buttonSubmit" @click="mySubmit()" value="提交">
+                    <input type="button" class="buttonAlert" @click="dialogClose()" value="取消">
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="../js/axios.min.js"></script>
+<script src="../js/vue.js"></script>
+<script type="text/javascript" src="../js/jquery.min.js"></script>
+<script>
+    new Vue({
+        el: "#app",
+        data: {
+            notes: [],//当前页要展示的列表数据
+            updateData: {},//表单数据
+            page: {
+                currentPage: 1,// 当前页码
+                pageSize: 10,// 每页显示的条数
+                totalCount: "",// 总记录数
+            },
+            pageRange: [],
+            pageNum: 0,
+            dialog:false,
+        },
+        created() {
+            this.getAllByPage();
+        },
+        methods: {
+            //根据当前页面按钮切换页面
+            setCurrentPage(index) {
+                this.page.currentPage = index;
+                this.calculate();
+                this.getAllByPage();
+            },
+            //下一页
+            myNextPage() {
+                if (this.page.currentPage < this.pageNum) {
+                    this.page.currentPage++;
+                }
+                this.calculate();
+                this.getAllByPage();
+            },
+            //上一页
+            myLastPage() {
+                if (this.page.currentPage > 1) {
+                    this.page.currentPage--;
+                }
+                this.calculate();
+                this.getAllByPage();
+            },
+            //生成range数组方便遍历
+            myRange(begin, end, step) {
+                let num = [];
+                let j = 0;
+                for (let i = begin; i <= end; i += step) {
+                    num[j] = i;
+                    j = j + 1;
+                }
+                return num;
+            },
+            //计算当前页面的所有页码关系
+            calculate() {
+                this.pageNum = Math.floor(parseInt(this.page.totalCount) /
+                    parseInt(this.page.pageSize)) + 1;
+                if (this.pageNum <= 5) {
+                    this.pageRange = this.myRange(1, this.pageNum, 1);
+                } else {
+                    let begin = parseInt(this.page.currentPage);
+                    let end = 0;
+                    if (begin <= 2) {
+                        end = begin + 2;
+                        if (end > this.pageNum) {
+                            end = this.pageNum;
+                        }
+                    } else {
+                        end = begin + 2;
+                        begin = begin - 2;
+                        if (end > this.pageNum) {
+                            end = this.pageNum;
+                        }
+                    }
+                    this.pageRange = this.myRange(begin, end, 1);
+                }
+            },
+            getAllByPage() {
+                //发送分页页面请求 获取当前页面数据
+                axios.post('http://localhost:8080/notes/page',{
+                    currentPaper: this.page.currentPage,
+                    paperSize: this.page.pageSize
+                }).then((response)=>{
+                    console.log(response.data);
+                    this.notes = response.data.data;
+                });
+                //获取数据总数目
+                axios.get("http://localhost:8080/notes/count").
+                then((res) => {
+                    this.page.totalCount = res.data.data;
+                });
+                this.calculate();
+            },
+
+            //标记此便利贴已经完成
+            finish(id) {
+                axios.get("http://localhost:8080/notes/update/" + parseInt(id)).then((res) => {
+                    console.log(res.data);
+                    if (res.data.code === 23531) {
+                        this.getAllByPage();
+                    } else if (res.data.code === 23530) {
+                        alert("请重试一次 :'(");
+                    } else {
+                        alert(res.data.msg);
+                    }
+                }).finally(() => {
+                    console.log("修改标记;-)一次 " + new Date());
+                });
+            },
+            //删除此便利贴
+            deleteNote(cardId) {
+                axios.delete("http://localhost:8080/notes/" + parseInt(cardId)).then((res) => {
+                    confirm("确认删除:-)")
+                    if (res.data.code === 23521) {
+                        this.getAllByPage();
+                    } else if (res.data.code === 23520) {
+                        alert(res.data.msg);
+                    } else {
+                        alert(res.data.msg);
+                    }
+                }).finally(() => {
+                    console.log("删除标记;-)一次 " + new Date());
+                });
+            },
+            //打开修改对话框
+            dialogOpen(cardId) {
+                // let x = document.getElementById("myDialog");
+                // x.style.display = "inline";
+                this.dialog=true;
+                this.notes = null;
+                axios.get("http://localhost:8080/notes/" + parseInt(cardId)).then((res) => {
+                    console.log(res.data);
+                    if (res.data.code === 23541) {
+                        this.updateData = res.data.data;
+                    } else if (res.data.code === 23540) {
+                        alert("请重试一次 :'(");
+                    } else {
+                        alert(res.data.msg);
+                    }
+                }).finally(() => {
+                    console.log("查询一条;-)一次 " + new Date());
+                });
+            },
+            //关闭修改对话框
+            dialogClose() {
+                this.dialog=false;
+                this.getAllByPage();
+            },
+            //发送提交数据请求
+            mySubmit() {
+                let body = this.updateData.cardBody;
+                body = body.trim();
+                if (body == null || body === '') {
+                    alert("正文为空:'( ")
+                } else {
+                    this.sendUpdate();
+                }
+            },
+            //发送更新数据请求
+            sendUpdate() {
+                axios.put("http://localhost:8080/notes/", this.updateData).then((res) => {
+                    console.log(res.data);
+                    if (res.data.code === 23531) {
+                        this.updateData = res.data.data;
+                        this.dialogClose();
+                    } else if (res.data.code === 23530) {
+                        alert("请重试一次 :'(");
+                    } else {
+                        alert(res.data.msg);
+                    }
+                }).finally(() => {
+                    console.log("更新一条;-)一次 " + new Date());
+                });
+            },
+            //返回到添加页面
+            back() {
+                window.location.href = "addCard.html";
+            }
+        }
+    })
+
+</script>
+
+</body>
+</html>
